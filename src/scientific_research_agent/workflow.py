@@ -1,7 +1,7 @@
 import json
 import re
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import SystemMessage, AIMessage, ToolMessage
+from langchain_core.messages import SystemMessage, AIMessage, ToolMessage, HumanMessage
 from langgraph.graph import StateGraph, START, END
 
 from scientific_research_agent.prompts import (
@@ -221,7 +221,27 @@ workflow.add_conditional_edges(
 workflow.add_edge("termination", END)
 
 # compile the graph
-app = workflow.compile()
+app = workflow.compile(debug=True)
+
+# Wrapper function to handle invocation properly
+def run_research_workflow(query: str):
+    """
+    Wrapper function to run the research workflow with proper error handling
+    """
+    try:
+        initial_state = {
+            "messages": [HumanMessage(content=query)]
+        }
+        
+        # Use invoke with proper configuration
+        result = app.invoke(initial_state, config={"recursion_limit": 50})
+        return result
+        
+    except Exception as e:
+        print(f"Error in research workflow: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 
 

@@ -1,0 +1,8 @@
+streamlit
+langchain-core<0.4.0,>=0.3.75
+langchain-google-genai
+langgraph==0.2.18
+pydantic
+python-dotenv
+pdfplumber
+urllib3
