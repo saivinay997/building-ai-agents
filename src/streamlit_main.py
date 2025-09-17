@@ -25,6 +25,15 @@ logging.getLogger("google").setLevel(logging.ERROR)
 # Load environment variables
 load_dotenv()
 
+# Load secrets from TOML file into environment variables
+try:
+    from utils.secrets_loader import load_secrets_simple
+    load_secrets_simple()
+    st.session_state.secrets_loaded = True
+except Exception as e:
+    st.session_state.secrets_loaded = False
+    st.session_state.secrets_error = str(e)
+
 # Ensure local imports work when running Streamlit from project root
 CURRENT_DIR = Path(__file__).resolve().parent
 if str(CURRENT_DIR) not in sys.path:
@@ -325,6 +334,13 @@ def display_chat_message(message: Dict[str, Any]):
 def main():
     # Main header
     st.markdown('<h1 class="main-header">🤖 AI Agents Hub</h1>', unsafe_allow_html=True)
+    
+    # Display secrets loading status
+    if hasattr(st.session_state, 'secrets_loaded'):
+        if st.session_state.secrets_loaded:
+            st.success("✅ Secrets loaded successfully")
+        else:
+            st.error(f"❌ Failed to load secrets: {st.session_state.secrets_error}")
     
     # Sidebar for agent selection
     with st.sidebar:

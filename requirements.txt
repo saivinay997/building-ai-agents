@@ -8,3 +8,4 @@ pdfplumber
 urllib3
 semantic-chunker
 tavily-python
+toml
