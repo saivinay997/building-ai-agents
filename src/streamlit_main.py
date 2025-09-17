@@ -4,10 +4,17 @@ import time
 from typing import List, Dict, Any
 from datetime import datetime
 import os
+import sys
+from pathlib import Path
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+# Ensure local imports work when running Streamlit from project root
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
 
 # Import the scientific research agent with error handling
 try:
@@ -209,10 +216,7 @@ AGENTS_CONFIG = {
 TEMPLATE_QUERIES = {
     "Scientific Research Agent": [
         "What are the latest developments in machine learning for drug discovery?",
-        "Find recent papers on quantum computing applications in cryptography",
-        "Analyze the impact of climate change on marine ecosystems",
-        "What are the current trends in renewable energy research?",
-        "Search for papers on CRISPR gene editing techniques",
+        "Download and summarize the findings of this paper: https://arxiv.org/pdf/2509.12260",
         "What are the latest findings in neuroscience and brain-computer interfaces?",
         "Find research on sustainable agriculture practices",
         "What are the recent advances in artificial intelligence ethics?"
@@ -267,7 +271,8 @@ def process_research_query(query: str) -> str:
         if result and "messages" in result:
             # Get the last AI message
             for message in reversed(result["messages"]):
-                if isinstance(message, AIMessage) and not hasattr(message, 'tool_calls'):
+                # Include messages that do not contain tool calls or have empty tool_calls
+                if isinstance(message, AIMessage) and not getattr(message, 'tool_calls', None):
                     return message.content
         
         # If no proper response found, try to extract any content
@@ -378,7 +383,7 @@ def main():
         del st.session_state.user_input
     
     # Chat input form
-    with st.form("chat_form", clear_on_submit=True):
+    with st.form("chat_form", clear_on_submit=False):
         col1, col2 = st.columns([4, 1])
         
         with col1:
@@ -394,6 +399,12 @@ def main():
     
     # Process user input
     if submit_button and user_query:
+        user_query = st.text_input(
+                "Type your message here...",
+                value=user_input,
+                placeholder=f"Ask {st.session_state.selected_agent} anything...",
+                label_visibility="collapsed"
+            )
         # Add user message to chat history
         st.session_state.messages.append({
             "role": "user",
@@ -415,6 +426,9 @@ def main():
             "content": response,
             "timestamp": datetime.now().isoformat()
         })
+        
+        # Clear the input field after successful submission
+        st.session_state.user_input = ""
         
         # Rerun to display new messages
         st.rerun()

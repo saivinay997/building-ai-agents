@@ -39,7 +39,8 @@ def decision_making_node(state: AgentState):
     output = {"requires_research": response.requires_research}
     #print("Decision making node output:", output)
     if response.answer:
-        output["answer"] = [AIMessage(content=response.answer)]
+        # Ensure direct answers are placed in the conversation messages
+        output["messages"] = [AIMessage(content=response.answer)]
     return output
 
 

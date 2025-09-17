@@ -12,12 +12,16 @@ Decision criteria:
   * The query is casual or conversational (e.g., greetings, small talk).
   * The query is explicitly outside the scope of science/research.
 
-Output format:
-Respond ONLY with one of the following labels:
-- "RESEARCH" → when external search and paper analysis is needed.
-- "DIRECT_ANSWER" → when a simple, conversational response is appropriate.
+Output format (STRICT JSON to match the following schema):
+{
+  "requires_research": boolean,
+  "answer": string | null
+}
 
-Additionally, provide a brief one-sentence justification for your choice.
+Rules:
+- If requires_research is true, set answer to null.
+- If requires_research is false, set answer to a concise, direct reply to the user.
+- Do not include any justification field or extra keys.
 """
 
 # Prompt to create a step by step plan to answer the user query
