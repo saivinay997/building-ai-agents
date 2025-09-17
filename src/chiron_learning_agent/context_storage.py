@@ -1,4 +1,4 @@
-from langgraph.store.memory import InMemoryStore
+from langgraph.checkpoint.memory import InMemorySaver
 import uuid
 class ContextStorage:
     """Store for managing context chunks and their embeddings in memory
@@ -6,7 +6,7 @@ class ContextStorage:
     
     def __init__(self):
         """Initialize ContextStore with an empty in-memory store"""
-        self.store = InMemoryStore()
+        self.store = InMemorySaver()
         
     def save_context(self, context_chunks: list, embeddings: list, key: str = None):
         """Save context chunks and their embeddings to the store"""

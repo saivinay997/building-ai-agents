@@ -1,4 +1,4 @@
-from datetime import time
+import time
 import os
 import json
 from dotenv import load_dotenv
@@ -58,12 +58,12 @@ class CoreAPIWrapper:
             published_data_str = result.get("publishedDate") or result.get("yearPublished", "")
             authors_str = " and ".join([item["name"] for item in result.get("authors", [])])
             docs.append((
-                f"* ID: {result.get("id", "")},\n"
+                f"* ID: {result.get('id', '')},\n"
                 f"* Title: {result.get('title', '')},\n"
                 f"* Published Date: {published_data_str},\n"
                 f"* Authors: {authors_str},\n"
-                f"* Abstract: {result.get("abstract", "")},\n"
-                f"* Paper URLs: {result.get("sourceFulltextUrls") or result.get("downloadUrl", "")}"
+                f"* Abstract: {result.get('abstract', '')},\n"
+                f"* Paper URLs: {result.get('sourceFulltextUrls') or result.get('downloadUrl', '')}"
             ))
         return "\n-----\n".join(docs)
 
