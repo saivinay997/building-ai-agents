@@ -7,6 +7,20 @@ import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
+import warnings
+import logging
+
+# Suppress ALTS and gRPC warnings from Google libraries
+os.environ["GRPC_VERBOSITY"] = "ERROR"
+os.environ["GRPC_TRACE"] = ""
+
+# Suppress specific warnings
+warnings.filterwarnings("ignore", message=".*ALTS creds ignored.*")
+warnings.filterwarnings("ignore", message=".*All log messages before absl::InitializeLog.*")
+
+# Configure logging to suppress gRPC warnings
+logging.getLogger("grpc").setLevel(logging.ERROR)
+logging.getLogger("google").setLevel(logging.ERROR)
 
 # Load environment variables
 load_dotenv()
@@ -380,7 +394,7 @@ def main():
     user_input = ""
     if "user_input" in st.session_state:
         user_input = st.session_state.user_input
-        del st.session_state.user_input
+        # del st.session_state.user_input
     
     # Chat input form
     with st.form("chat_form", clear_on_submit=False):

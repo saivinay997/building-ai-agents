@@ -1,5 +1,21 @@
 import json
 import re
+import os
+import warnings
+import logging
+
+# Suppress ALTS and gRPC warnings from Google libraries
+os.environ["GRPC_VERBOSITY"] = "ERROR"
+os.environ["GRPC_TRACE"] = ""
+
+# Suppress specific warnings
+warnings.filterwarnings("ignore", message=".*ALTS creds ignored.*")
+warnings.filterwarnings("ignore", message=".*All log messages before absl::InitializeLog.*")
+
+# Configure logging to suppress gRPC warnings
+logging.getLogger("grpc").setLevel(logging.ERROR)
+logging.getLogger("google").setLevel(logging.ERROR)
+
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, AIMessage, ToolMessage, HumanMessage
 from langgraph.graph import StateGraph, START, END
@@ -32,16 +48,31 @@ def decision_making_node(state: AgentState):
     """
     #print("#" * 50)
     #print("Decision making node input:", state["messages"][-1])
-    system_prompt = SystemMessage(content=decision_making_prompt)
-    response: DecisionMakingOutput = decision_making_llm.invoke(
-        [system_prompt] + state["messages"]
-    )
-    output = {"requires_research": response.requires_research}
-    #print("Decision making node output:", output)
-    if response.answer:
-        # Ensure direct answers are placed in the conversation messages
-        output["messages"] = [AIMessage(content=response.answer)]
-    return output
+    
+    # Validate input
+    if not state["messages"] or not any(msg.content for msg in state["messages"] if hasattr(msg, 'content')):
+        return {
+            "requires_research": False,
+            "messages": [AIMessage(content="I apologize, but I didn't receive a valid query. Please try again.")]
+        }
+    
+    try:
+        system_prompt = SystemMessage(content=decision_making_prompt)
+        response: DecisionMakingOutput = decision_making_llm.invoke(
+            [system_prompt] + state["messages"]
+        )
+        output = {"requires_research": response.requires_research}
+        #print("Decision making node output:", output)
+        if response.answer:
+            # Ensure direct answers are placed in the conversation messages
+            output["messages"] = [AIMessage(content=response.answer)]
+        return output
+    except Exception as e:
+        print(f"Error in decision_making_node: {e}")
+        return {
+            "requires_research": False,
+            "messages": [AIMessage(content=f"I encountered an error processing your request: {str(e)}. Please try again.")]
+        }
 
 
 # Task router function
@@ -63,15 +94,31 @@ def planning_node(state: AgentState):
     # Increment planning cycle counter
     num_planning_cycles = state.get("num_planning_cycles", 0) + 1
     
-    system_prompt = SystemMessage(
-        content=planning_prompt.format(tools=format_tool_description(tools))
-    )
-    response = base_llm.invoke([system_prompt] + state["messages"])
-    #print("Planning node output:", response)
-    return {
-        "messages": [response],
-        "num_planning_cycles": num_planning_cycles
-    }
+    # Validate input
+    if not state["messages"] or not any(msg.content for msg in state["messages"] if hasattr(msg, 'content')):
+        error_message = AIMessage(content="I apologize, but I didn't receive a valid query to plan for. Please try again.")
+        return {
+            "messages": [error_message],
+            "num_planning_cycles": num_planning_cycles
+        }
+    
+    try:
+        system_prompt = SystemMessage(
+            content=planning_prompt.format(tools=format_tool_description(tools))
+        )
+        response = base_llm.invoke([system_prompt] + state["messages"])
+        #print("Planning node output:", response)
+        return {
+            "messages": [response],
+            "num_planning_cycles": num_planning_cycles
+        }
+    except Exception as e:
+        print(f"Error in planning_node: {e}")
+        error_message = AIMessage(content=f"I encountered an error while creating a plan: {str(e)}. Please try again.")
+        return {
+            "messages": [error_message],
+            "num_planning_cycles": num_planning_cycles
+        }
 
 
 # Tool call node
@@ -101,14 +148,31 @@ def agent_node(state: AgentState):
     #print("Agent node input:", state["messages"][-1])
     
     system_prompt = SystemMessage(content=agent_prompt)
-    state["messages"][-1].content = re.sub(r"```.*?```", "", state["messages"][-1].content, flags=re.DOTALL)
+    
+    # Clean the last message content but ensure it's not empty
+    last_message = state["messages"][-1]
+    if hasattr(last_message, 'content') and last_message.content:
+        cleaned_content = re.sub(r"```.*?```", "", last_message.content, flags=re.DOTALL).strip()
+        # If cleaning resulted in empty content, keep the original
+        if not cleaned_content:
+            cleaned_content = last_message.content
+        last_message.content = cleaned_content
+    
     messages_to_send = [system_prompt] + state["messages"]
     
-    response = agent_llm.invoke(messages_to_send)
+    # Validate that we have content to send
+    if not messages_to_send or not any(msg.content for msg in messages_to_send if hasattr(msg, 'content')):
+        error_message = AIMessage(content="I apologize, but I encountered an issue processing your request. Please try rephrasing your question.")
+        return {"messages": [error_message]}
     
-    
-    #print("Agent node output:", response)
-    return {"messages": [response]}
+    try:
+        response = agent_llm.invoke(messages_to_send)
+        #print("Agent node output:", response)
+        return {"messages": [response]}
+    except Exception as e:
+        print(f"Error in agent_node: {e}")
+        error_message = AIMessage(content=f"I encountered an error while processing your request: {str(e)}. Please try again.")
+        return {"messages": [error_message]}
     
 
 
@@ -135,16 +199,30 @@ def judge_node(state: AgentState):
     if num_feedback_requests >= 2:
         return {"is_good_answer": True}
 
-    system_prompt = SystemMessage(content=judge_prompt)
-    response: JudgeOutput = judge_llm.invoke([system_prompt] + state["messages"])
-    output = {
-        "is_good_answer": response.is_good_answer,
-        "num_feedback_requests": num_feedback_requests + 1,
-    }
-    if response.feedback:
-        output["messages"] = [AIMessage(content=response.feedback)]
-        #print("Judge node output:", output["messages"][-1])
-    return output
+    # Validate input
+    if not state["messages"] or not any(msg.content for msg in state["messages"] if hasattr(msg, 'content')):
+        return {
+            "is_good_answer": True,
+            "num_feedback_requests": num_feedback_requests + 1
+        }
+
+    try:
+        system_prompt = SystemMessage(content=judge_prompt)
+        response: JudgeOutput = judge_llm.invoke([system_prompt] + state["messages"])
+        output = {
+            "is_good_answer": response.is_good_answer,
+            "num_feedback_requests": num_feedback_requests + 1,
+        }
+        if response.feedback:
+            output["messages"] = [AIMessage(content=response.feedback)]
+            #print("Judge node output:", output["messages"][-1])
+        return output
+    except Exception as e:
+        print(f"Error in judge_node: {e}")
+        return {
+            "is_good_answer": True,  # Assume good answer to avoid infinite loops
+            "num_feedback_requests": num_feedback_requests + 1
+        }
 
 
 def termination_node(state: AgentState):
@@ -230,8 +308,14 @@ def run_research_workflow(query: str):
     Wrapper function to run the research workflow with proper error handling
     """
     try:
+        # Validate input query
+        if not query or not query.strip():
+            return {
+                "messages": [AIMessage(content="I apologize, but I didn't receive a valid query. Please provide a question or request.")]
+            }
+        
         initial_state = {
-            "messages": [HumanMessage(content=query)]
+            "messages": [HumanMessage(content=query.strip())]
         }
         
         # Use invoke with proper configuration
@@ -242,7 +326,9 @@ def run_research_workflow(query: str):
         print(f"Error in research workflow: {e}")
         import traceback
         traceback.print_exc()
-        return None
+        return {
+            "messages": [AIMessage(content=f"I encountered an error while processing your request: {str(e)}. Please try again with a different question.")]
+        }
 
 
 

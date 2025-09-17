@@ -1,6 +1,20 @@
 import os
+import warnings
+import logging
 from typing import List
 from dotenv import load_dotenv
+
+# Suppress ALTS and gRPC warnings from Google libraries
+os.environ["GRPC_VERBOSITY"] = "ERROR"
+os.environ["GRPC_TRACE"] = ""
+
+# Suppress specific warnings
+warnings.filterwarnings("ignore", message=".*ALTS creds ignored.*")
+warnings.filterwarnings("ignore", message=".*All log messages before absl::InitializeLog.*")
+
+# Configure logging to suppress gRPC warnings
+logging.getLogger("grpc").setLevel(logging.ERROR)
+logging.getLogger("google").setLevel(logging.ERROR)
 
 load_dotenv()
 from chiron_learning_agent.pydantic_models import (
