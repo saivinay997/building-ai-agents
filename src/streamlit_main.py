@@ -26,13 +26,19 @@ logging.getLogger("google").setLevel(logging.ERROR)
 load_dotenv()
 
 # Load secrets from TOML file into environment variables
-try:
-    from utils.secrets_loader import load_secrets_simple
-    load_secrets_simple()
-    st.session_state.secrets_loaded = True
-except Exception as e:
-    st.session_state.secrets_loaded = False
-    st.session_state.secrets_error = str(e)
+# try:
+#     from utils.secrets_loader import load_secrets_simple
+#     load_secrets_simple()
+#     st.session_state.secrets_loaded = True
+# except Exception as e:
+#     st.session_state.secrets_loaded = False
+#     st.session_state.secrets_error = str(e)
+
+os.environ["GOOGLE_API_KEY"] = st.secrets["secrets"]["GOOGLE_API_KEY"]
+os.environ["CORE_API_KEY"] = st.secrets["secrets"]["CORE_API_KEY"]
+os.environ["TAVILY_API_KEY"] = st.secrets["secrets"]["TAVILY_API_KEY"]
+
+
 
 # Ensure local imports work when running Streamlit from project root
 CURRENT_DIR = Path(__file__).resolve().parent
